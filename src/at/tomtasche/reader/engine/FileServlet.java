@@ -5,14 +5,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 
+import javax.activation.MimetypesFileTypeMap;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.fileupload.FileItemIterator;
-import org.apache.commons.fileupload.FileItemStream;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.mortbay.jetty.MimeTypes;
 
 import com.google.appengine.api.blobstore.BlobKey;
 import com.google.appengine.api.blobstore.BlobstoreService;
@@ -21,6 +20,9 @@ import com.google.appengine.api.files.AppEngineFile;
 import com.google.appengine.api.files.FileService;
 import com.google.appengine.api.files.FileServiceFactory;
 import com.google.appengine.api.files.FileWriteChannel;
+import com.google.appengine.api.memcache.Expiration;
+import com.google.appengine.api.memcache.MemcacheService;
+import com.google.appengine.api.memcache.MemcacheServiceFactory;
 import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.QueueFactory;
 import com.google.appengine.api.taskqueue.TaskOptions;
@@ -31,6 +33,7 @@ import com.google.gson.JsonObject;
 public class FileServlet extends HttpServlet {
 
 	private BlobstoreService blobstoreService;
+	private MemcacheService memcache;
 	private Gson gson;
 
 	@Override
@@ -38,6 +41,7 @@ public class FileServlet extends HttpServlet {
 		super.init();
 
 		blobstoreService = BlobstoreServiceFactory.getBlobstoreService();
+		memcache = MemcacheServiceFactory.getMemcacheService();
 		gson = new Gson();
 	}
 
@@ -45,6 +49,9 @@ public class FileServlet extends HttpServlet {
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException {
 		BlobKey key = new BlobKey(req.getParameter("key"));
+
+		String name = (String) memcache.get(key);
+		resp.addHeader("Content-Disposition", "attachment; filename=" + name);
 
 		blobstoreService.serve(key, resp);
 	}
@@ -55,9 +62,15 @@ public class FileServlet extends HttpServlet {
 		try {
 			InputStream stream = req.getInputStream();
 
+			String name = req.getParameter("name");
+			String type = req.getParameter("type");
+			if (type == null || type.equals("null")) {
+				type = MimetypesFileTypeMap.getDefaultFileTypeMap()
+						.getContentType(name);
+			}
+
 			FileService fileService = FileServiceFactory.getFileService();
-			AppEngineFile file = fileService
-					.createNewBlobFile("application/octet-stream");
+			AppEngineFile file = fileService.createNewBlobFile(type, name);
 
 			FileWriteChannel writeChannel = fileService.openWriteChannel(file,
 					true);
@@ -76,6 +89,8 @@ public class FileServlet extends HttpServlet {
 			Queue queue = QueueFactory.getDefaultQueue();
 			queue.add(TaskOptions.Builder.withUrl("/worker")
 					.param("key", key.getKeyString()).countdownMillis(600000));
+
+			memcache.put(key, name, Expiration.byDeltaSeconds(600000));
 
 			JsonObject container = new JsonObject();
 			container.addProperty("key", key.getKeyString());
