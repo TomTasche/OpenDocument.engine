@@ -53,44 +53,33 @@ public class FileServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException {
 		try {
-			ServletFileUpload upload = new ServletFileUpload();
+			InputStream stream = req.getInputStream();
 
-			FileItemIterator iterator = upload.getItemIterator(req);
-			while (iterator.hasNext()) {
-				FileItemStream item = iterator.next();
-				InputStream stream = item.openStream();
+			FileService fileService = FileServiceFactory.getFileService();
+			AppEngineFile file = fileService
+					.createNewBlobFile("application/octet-stream");
 
-				if (!item.isFormField()) {
-					FileService fileService = FileServiceFactory
-							.getFileService();
-					AppEngineFile file = fileService
-							.createNewBlobFile("application/octet-stream");
+			FileWriteChannel writeChannel = fileService.openWriteChannel(file,
+					true);
+			OutputStream output = Channels.newOutputStream(writeChannel);
 
-					FileWriteChannel writeChannel = fileService
-							.openWriteChannel(file, true);
-					OutputStream output = Channels
-							.newOutputStream(writeChannel);
-
-					int bytesRead;
-					byte[] buffer = new byte[1024];
-					while ((bytesRead = stream.read(buffer)) != -1) {
-						output.write(buffer, 0, bytesRead);
-					}
-
-					output.close();
-					writeChannel.closeFinally();
-
-					BlobKey key = fileService.getBlobKey(file);
-					Queue queue = QueueFactory.getDefaultQueue();
-					queue.add(TaskOptions.Builder.withUrl("/worker")
-							.param("key", key.getKeyString())
-							.countdownMillis(600000));
-
-					JsonObject container = new JsonObject();
-					container.addProperty("key", key.getKeyString());
-					gson.toJson(container, resp.getWriter());
-				}
+			int bytesRead;
+			byte[] buffer = new byte[1024];
+			while ((bytesRead = stream.read(buffer)) != -1) {
+				output.write(buffer, 0, bytesRead);
 			}
+
+			output.close();
+			writeChannel.closeFinally();
+
+			BlobKey key = fileService.getBlobKey(file);
+			Queue queue = QueueFactory.getDefaultQueue();
+			queue.add(TaskOptions.Builder.withUrl("/worker")
+					.param("key", key.getKeyString()).countdownMillis(600000));
+
+			JsonObject container = new JsonObject();
+			container.addProperty("key", key.getKeyString());
+			gson.toJson(container, resp.getWriter());
 		} catch (Exception ex) {
 			throw new ServletException(ex);
 		}
