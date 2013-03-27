@@ -60,4 +60,8 @@ public class State {
     this.ids = other.ids;
     this.parentId = other.parentId;
   }
+  
+  public String getFirstId() {
+	  return ids.iterator().next();
+  }
 }

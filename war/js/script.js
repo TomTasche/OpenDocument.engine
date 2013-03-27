@@ -8,9 +8,7 @@ var onSuccess = function(data, result, xhr) {
 };
 
 var onError = function(xhr, text_status, error) {
-  if (xhr.status == 302) {
-	  document.location.href = xhr.getResponseHeader('Location');
-  }
+  document.body.innerText = "Failed to load this document, sorry.";
 };
 
 var get = function(file_id) {

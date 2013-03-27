@@ -22,6 +22,7 @@ import java.nio.channels.Channels;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -34,7 +35,6 @@ import openoffice.html.ods.TranslatorOds;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.ByteArrayContent;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.services.drive.Drive;
@@ -49,6 +49,7 @@ import com.google.appengine.api.taskqueue.QueueFactory;
 import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.drive.samples.dredit.model.ClientFile;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 /**
  * Servlet providing a small API for the DrEdit JavaScript client to use in
@@ -59,6 +60,16 @@ import com.google.gson.Gson;
  */
 @SuppressWarnings("serial")
 public class DriveServlet extends DrEditServlet {
+
+	private Gson gson;
+
+	@Override
+	public void init() throws ServletException {
+		super.init();
+
+		gson = new Gson();
+	}
+
 	/**
 	 * Given a {@code file_id} URI parameter, return a JSON representation of
 	 * the given file.
@@ -89,22 +100,28 @@ public class DriveServlet extends DrEditServlet {
 			}
 		}
 
+		resp.setContentType(JSON_MIMETYPE);
 		if (file != null) {
 			InputStream stream = getFileContent(service, file);
 
 			String content = null;
 			CachedOpenDocumentFile documentFile = new CachedOpenDocumentFile(
 					stream);
-
 			try {
 				if (isDocument(documentFile)) {
-					BlobKey key = persistFileContent(stream);
+					BlobKey key = persistFileContent(documentFile
+							.getInputStream());
 
-					resp.sendRedirect(resp.encodeRedirectURL("http://docs.google.com/viewer?url="
-							+ URLEncoder.encode(
-									"https://opendocument-engine.appspot.com/file?key="
-											+ key.toString(), "UTF-8")
-							+ "&embedded=true"));
+					JsonObject container = new JsonObject();
+					container
+							.addProperty(
+									"redirect",
+									resp.encodeRedirectURL("http://docs.google.com/viewer?url="
+											+ URLEncoder.encode(
+													"https://opendocument-engine.appspot.com/file?key="
+															+ key.getKeyString(),
+													"UTF-8") + "&embedded=true"));
+					gson.toJson(container, resp.getWriter());
 
 					return;
 
@@ -122,6 +139,8 @@ public class DriveServlet extends DrEditServlet {
 
 					content = translatorOds.translate().getHtmlDocument()
 							.toString();
+				} else {
+					sendError(resp, 500, "Could not display file");
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -133,7 +152,6 @@ public class DriveServlet extends DrEditServlet {
 				return;
 			}
 
-			resp.setContentType(JSON_MIMETYPE);
 			resp.getWriter().print(new ClientFile(file, content).toJson());
 		} else {
 			sendError(resp, 404, "File not found");
@@ -154,61 +172,6 @@ public class DriveServlet extends DrEditServlet {
 						OpenDocumentTextTemplate.MIMETYPE);
 	}
 
-	/**
-	 * Create a new file given a JSON representation, and return the JSON
-	 * representation of the created file.
-	 */
-	@Override
-	public void doPost(HttpServletRequest req, HttpServletResponse resp)
-			throws IOException {
-		Drive service = getDriveService(req, resp);
-		ClientFile clientFile = new ClientFile(req.getReader());
-		File file = clientFile.toFile();
-
-		if (!clientFile.content.equals("")) {
-			file = service
-					.files()
-					.insert(file,
-							ByteArrayContent.fromString(clientFile.mimeType,
-									clientFile.content)).execute();
-		} else {
-			file = service.files().insert(file).execute();
-		}
-
-		resp.setContentType(JSON_MIMETYPE);
-		resp.getWriter().print(new Gson().toJson(file.getId()).toString());
-	}
-
-	/**
-	 * Update a file given a JSON representation, and return the JSON
-	 * representation of the created file.
-	 */
-	@Override
-	public void doPut(HttpServletRequest req, HttpServletResponse resp)
-			throws IOException {
-		boolean newRevision = req.getParameter("newRevision").equals(
-				Boolean.TRUE);
-		Drive service = getDriveService(req, resp);
-		ClientFile clientFile = new ClientFile(req.getReader());
-		File file = clientFile.toFile();
-		// If there is content we update the given file
-		if (clientFile.content != null) {
-			file = service
-					.files()
-					.update(clientFile.resource_id,
-							file,
-							ByteArrayContent.fromString(clientFile.mimeType,
-									clientFile.content))
-					.setNewRevision(newRevision).execute();
-		} else { // If there is no content we patch the metadata only
-			file = service.files().patch(clientFile.resource_id, file)
-					.setNewRevision(newRevision).execute();
-		}
-
-		resp.setContentType(JSON_MIMETYPE);
-		resp.getWriter().print(new Gson().toJson(file.getId()).toString());
-	}
-
 	private InputStream getFileContent(Drive service, File file)
 			throws IOException {
 		GenericUrl url = new GenericUrl(file.getDownloadUrl());
@@ -220,16 +183,17 @@ public class DriveServlet extends DrEditServlet {
 
 	private BlobKey persistFileContent(InputStream stream) throws IOException {
 		FileService fileService = FileServiceFactory.getFileService();
-		AppEngineFile engineFile = fileService.createNewBlobFile("image/jpg");
+		AppEngineFile engineFile = fileService.createNewBlobFile(
+				"application/vnd.oasis.opendocument.text", "file.odt");
 
 		FileWriteChannel writeChannel = fileService.openWriteChannel(
 				engineFile, true);
 		OutputStream output = Channels.newOutputStream(writeChannel);
 
-		int len;
-		byte[] buffer = new byte[8192];
-		while ((len = stream.read(buffer, 0, buffer.length)) != -1) {
-			output.write(buffer, 0, len);
+		int bytesRead;
+		byte[] buffer = new byte[1024];
+		while ((bytesRead = stream.read(buffer)) != -1) {
+			output.write(buffer, 0, bytesRead);
 		}
 
 		output.close();

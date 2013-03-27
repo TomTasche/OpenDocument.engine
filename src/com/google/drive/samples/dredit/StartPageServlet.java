@@ -38,15 +38,15 @@ public class StartPageServlet extends DrEditServlet {
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException, ServletException {
-		if (req.getParameterMap().isEmpty()) {
-			resp.sendRedirect(resp
-					.encodeRedirectURL("https://chrome.google.com/webstore/detail/jpcfmmdlhndnfpagbmhbbfehenapoich"));
-		} else {
+		if (req.getParameter("state") != null) {
 			// Making sure the code gets processed
 			req.setAttribute("client_id",
 					new Gson().toJson(getClientId(req, resp)));
 			req.getRequestDispatcher("/WEB-INF/templates/index.jsp").forward(
 					req, resp);
+		} else {
+			resp.sendRedirect(resp
+					.encodeRedirectURL("https://chrome.google.com/webstore/detail/jpcfmmdlhndnfpagbmhbbfehenapoich"));
 		}
 	}
 }

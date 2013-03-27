@@ -90,7 +90,8 @@ public class FileServlet extends HttpServlet {
 			queue.add(TaskOptions.Builder.withUrl("/worker")
 					.param("key", key.getKeyString()).countdownMillis(600000));
 
-			memcache.put(key, name, Expiration.byDeltaSeconds(600000));
+			memcache.put(key.getKeyString(), name,
+					Expiration.byDeltaSeconds(600000));
 
 			JsonObject container = new JsonObject();
 			container.addProperty("key", key.getKeyString());

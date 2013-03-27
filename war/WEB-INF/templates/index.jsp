@@ -1,4 +1,4 @@
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page contentType="text/html;charset=UTF-8" language="java" import="com.google.drive.samples.dredit.model.State" %>
 
 <html>
   <head>
@@ -10,9 +10,11 @@
   	Loading...
   </body>
   <script>
-    var FILE_IDS = <%= request.getAttribute("ids") %>;
-    for (i in FILE_IDS) {
-    	get(FILE_IDS[i]);
-    }
+    <%
+      State state = new State(request.getParameter("state"));
+    %>
+    
+    var fileId = "<%= state.getFirstId() %>";
+	get(fileId);
   </script>
 </html>
