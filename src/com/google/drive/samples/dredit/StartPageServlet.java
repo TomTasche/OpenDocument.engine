@@ -46,7 +46,7 @@ public class StartPageServlet extends DrEditServlet {
 					req, resp);
 		} else {
 			resp.sendRedirect(resp
-					.encodeRedirectURL("https://chrome.google.com/webstore/detail/jpcfmmdlhndnfpagbmhbbfehenapoich"));
+					.encodeRedirectURL("https://drive.google.com/#search/*.odt"));
 		}
 	}
 }
