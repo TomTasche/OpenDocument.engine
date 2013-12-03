@@ -1,46 +1,46 @@
-<?xml version="1.0" encoding="utf-8" standalone="no"?><web-app xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.5" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+<?xml version="1.0" encoding="utf-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+	version="2.5">
 	<servlet>
-		<servlet-name>StartPageServlet</servlet-name>
-		<servlet-class>com.google.drive.samples.dredit.StartPageServlet</servlet-class>
+		<servlet-name>DocumentTranslatorServlet</servlet-name>
+		<servlet-class>at.tomtasche.opendocument.cloud.DocumentTranslatorServlet</servlet-class>
 	</servlet>
 	<servlet-mapping>
-		<servlet-name>StartPageServlet</servlet-name>
-		<url-pattern>/</url-pattern>
+		<servlet-name>DocumentTranslatorServlet</servlet-name>
+		<url-pattern>/translator</url-pattern>
 	</servlet-mapping>
+
 	<servlet>
-		<servlet-name>DriveServlet</servlet-name>
-		<servlet-class>com.google.drive.samples.dredit.DriveServlet</servlet-class>
+		<servlet-name>DocumentRetranslatorServlet</servlet-name>
+		<servlet-class>at.tomtasche.opendocument.cloud.DocumentRetranslatorServlet</servlet-class>
 	</servlet>
 	<servlet-mapping>
-		<servlet-name>DriveServlet</servlet-name>
-		<url-pattern>/svc</url-pattern>
+		<servlet-name>DocumentRetranslatorServlet</servlet-name>
+		<url-pattern>/retranslator</url-pattern>
 	</servlet-mapping>
+
 	<servlet>
 		<servlet-name>FileServlet</servlet-name>
-		<servlet-class>at.tomtasche.reader.engine.FileServlet</servlet-class>
+		<servlet-class>at.tomtasche.opendocument.cloud.FileServlet</servlet-class>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>FileServlet</servlet-name>
 		<url-pattern>/file</url-pattern>
 	</servlet-mapping>
+
 	<servlet>
 		<servlet-name>FileWorker</servlet-name>
-		<servlet-class>at.tomtasche.reader.engine.FileWorker</servlet-class>
+		<servlet-class>at.tomtasche.opendocument.cloud.FileWorker</servlet-class>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>FileWorker</servlet-name>
-		<url-pattern>/worker</url-pattern>
+		<url-pattern>/file/worker</url-pattern>
 	</servlet-mapping>
-	<servlet>
-		<servlet-name>SystemServiceServlet</servlet-name>
-		<servlet-class>com.google.api.server.spi.SystemServiceServlet</servlet-class>
-		<init-param>
-			<param-name>services</param-name>
-			<param-value/>
-		</init-param>
-	</servlet>
-	<servlet-mapping>
-		<servlet-name>SystemServiceServlet</servlet-name>
-		<url-pattern>/_ah/spi/*</url-pattern>
-	</servlet-mapping>
+
+	<welcome-file-list>
+		<welcome-file>index.html</welcome-file>
+	</welcome-file-list>
 </web-app>
