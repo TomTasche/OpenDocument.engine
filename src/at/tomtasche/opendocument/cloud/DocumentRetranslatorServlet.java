@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -23,7 +22,7 @@ import com.google.appengine.tools.cloudstorage.GcsService;
 import com.google.appengine.tools.cloudstorage.GcsServiceFactory;
 
 @SuppressWarnings("serial")
-public class DocumentRetranslatorServlet extends HttpServlet {
+public class DocumentRetranslatorServlet extends BaseServlet {
 
 	private GcsService gcsService;
 
@@ -34,12 +33,13 @@ public class DocumentRetranslatorServlet extends HttpServlet {
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException {
 		GcsInputChannel htmlInputChannel = gcsService.openReadChannel(
-				new GcsFilename("html-files", "intro.html"), 0);
+				new GcsFilename(FileType.HTML + FILES_SUFFIX, "intro.html"), 0);
 
 		InputStream htmlStream = Channels.newInputStream(htmlInputChannel);
 
 		GcsInputChannel documentInputChannel = gcsService.openReadChannel(
-				new GcsFilename("document-files", "intro.odt"), 0);
+				new GcsFilename(FileType.DOCUMENT + FILES_SUFFIX, "intro.odt"),
+				0);
 
 		InputStream documentStream = Channels
 				.newInputStream(documentInputChannel);
@@ -54,7 +54,8 @@ public class DocumentRetranslatorServlet extends HttpServlet {
 
 		documentBuffer.flush();
 
-		resp.addHeader("Content-Disposition", "attachment; filename=" + "opendocument-modified.odt");
+		resp.addHeader("Content-Disposition", "attachment; filename="
+				+ "opendocument-modified.odt");
 
 		resp.setCharacterEncoding("UTF-8");
 		resp.setContentType("text/html; charset=UTF-8");

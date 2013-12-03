@@ -8,7 +8,6 @@ import java.util.UUID;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -28,7 +27,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 @SuppressWarnings("serial")
-public class FileServlet extends HttpServlet {
+public class FileServlet extends BaseServlet {
 
 	private MemcacheService memcache;
 	private GcsService gcsService;
@@ -43,13 +42,20 @@ public class FileServlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException {
+		FileType type = getType(req);
+		if (type == null) {
+			resp.sendError(400);
+
+			return;
+		}
+
 		String file = req.getParameter("file");
 		String name = (String) memcache.get(file);
 
 		resp.addHeader("Content-Disposition", "attachment; filename=" + name);
 
 		GcsInputChannel inputChannel = gcsService.openReadChannel(
-				new GcsFilename("document-files", file), 0);
+				new GcsFilename(type.toString() + FILES_SUFFIX, file), 0);
 
 		InputStream stream = Channels.newInputStream(inputChannel);
 
@@ -65,12 +71,19 @@ public class FileServlet extends HttpServlet {
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException {
+		FileType type = getType(req);
+		if (type == null) {
+			resp.sendError(400);
+
+			return;
+		}
+
 		InputStream stream = req.getInputStream();
 
 		String name = req.getParameter("name");
-		String type = req.getParameter("type");
-		if (type == null || type.equals("null") || type.length() == 0) {
-			type = MimetypesFileTypeMap.getDefaultFileTypeMap().getContentType(
+		String mime = req.getParameter("mime");
+		if (mime == null || mime.equals("null") || mime.length() == 0) {
+			mime = MimetypesFileTypeMap.getDefaultFileTypeMap().getContentType(
 					name);
 		}
 
@@ -88,9 +101,9 @@ public class FileServlet extends HttpServlet {
 			filename = fileId + "." + splitFilename[splitFilename.length - 1];
 		}
 
-		// TODO: save to various-files and only store ODF documents in document-files
-		GcsFilename file = new GcsFilename("document-files", filename);
-		GcsFileOptions options = new GcsFileOptions.Builder().mimeType(type)
+		GcsFilename file = new GcsFilename(type.toString() + FILES_SUFFIX,
+				filename);
+		GcsFileOptions options = new GcsFileOptions.Builder().mimeType(mime)
 				.acl("public-read").build();
 		GcsOutputChannel writeChannel = gcsService.createOrReplace(file,
 				options);
@@ -109,7 +122,9 @@ public class FileServlet extends HttpServlet {
 
 		Queue queue = QueueFactory.getDefaultQueue();
 		queue.add(TaskOptions.Builder.withUrl("/file/worker")
-				.param("file", filename).param("name", name)
+				.param("file", filename).param("type", type.toString())
+				// TODO: change according to FileType:
+				// e.g. store documents longer than various
 				.countdownMillis(600000));
 
 		memcache.put(filename, name, Expiration.byDeltaSeconds(600000));

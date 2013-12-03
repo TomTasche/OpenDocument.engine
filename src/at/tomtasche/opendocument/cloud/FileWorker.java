@@ -3,7 +3,6 @@ package at.tomtasche.opendocument.cloud;
 import java.io.IOException;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -12,7 +11,7 @@ import com.google.appengine.tools.cloudstorage.GcsService;
 import com.google.appengine.tools.cloudstorage.GcsServiceFactory;
 
 @SuppressWarnings("serial")
-public class FileWorker extends HttpServlet {
+public class FileWorker extends BaseServlet {
 
 	private GcsService gcsService;
 
@@ -23,10 +22,14 @@ public class FileWorker extends HttpServlet {
 	@Override
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
-		if (request.getParameter("file") == null)
-			return;
+		FileType type = getType(request);
+		if (type == null) {
+			response.sendError(400);
 
-		gcsService.delete(new GcsFilename("document-files", request
+			return;
+		}
+
+		gcsService.delete(new GcsFilename(type + FILES_SUFFIX, request
 				.getParameter("file")));
 	}
 }

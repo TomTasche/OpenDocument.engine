@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -24,7 +23,7 @@ import com.google.appengine.tools.cloudstorage.GcsService;
 import com.google.appengine.tools.cloudstorage.GcsServiceFactory;
 
 @SuppressWarnings("serial")
-public class DocumentTranslatorServlet extends HttpServlet {
+public class DocumentTranslatorServlet extends BaseServlet {
 
 	private GcsService gcsService;
 
@@ -35,7 +34,8 @@ public class DocumentTranslatorServlet extends HttpServlet {
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException {
 		GcsInputChannel inputChannel = gcsService.openReadChannel(
-				new GcsFilename("document-files", "intro.odt"), 0);
+				new GcsFilename(FileType.DOCUMENT + FILES_SUFFIX, "intro.odt"),
+				0);
 
 		InputStream stream = Channels.newInputStream(inputChannel);
 
