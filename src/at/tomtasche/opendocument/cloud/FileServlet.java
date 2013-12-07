@@ -3,6 +3,7 @@ package at.tomtasche.opendocument.cloud;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.nio.channels.Channels;
 import java.util.UUID;
 
@@ -78,7 +79,12 @@ public class FileServlet extends BaseServlet {
 			return;
 		}
 
-		InputStream stream = req.getInputStream();
+		InputStream stream;
+		if (req.getParameter("url") != null) {
+			stream = new URL(req.getParameter("url")).openStream();
+		} else {
+			stream = req.getInputStream();
+		}
 
 		String name = req.getParameter("name");
 		String mime = req.getParameter("mime");
