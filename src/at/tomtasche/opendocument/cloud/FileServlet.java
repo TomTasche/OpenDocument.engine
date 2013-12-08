@@ -95,16 +95,16 @@ public class FileServlet extends BaseServlet {
 
 		String fileId = UUID.randomUUID().toString();
 
-		if (name == null || name.equals("null") || name.length() == 0) {
-			name = fileId;
-		}
-
-		String[] splitFilename = name.split(".");
+		String[] splitName = name.split("\\.");
 		String filename;
-		if (splitFilename.length == 0) {
+		if (splitName.length == 0) {
 			filename = fileId + ".unknown";
 		} else {
-			filename = fileId + "." + splitFilename[splitFilename.length - 1];
+			filename = fileId + "." + splitName[splitName.length - 1];
+		}
+
+		if (name == null || name.equals("null") || name.length() == 0) {
+			name = fileId;
 		}
 
 		GcsFilename file = new GcsFilename(type.toString() + FILES_SUFFIX,
