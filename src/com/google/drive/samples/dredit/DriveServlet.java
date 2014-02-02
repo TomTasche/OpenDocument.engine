@@ -14,11 +14,10 @@
 
 package com.google.drive.samples.dredit;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URLEncoder;
-import java.nio.channels.Channels;
+import java.io.StringWriter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,12 +25,20 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import openoffice.CachedOpenDocumentFile;
-import openoffice.OpenDocumentSpreadsheet;
-import openoffice.OpenDocumentSpreadsheetTemplate;
-import openoffice.OpenDocumentText;
-import openoffice.OpenDocumentTextTemplate;
-import openoffice.html.ods.TranslatorOds;
+import at.stefl.commons.lwxml.writer.LWXMLStreamWriter;
+import at.stefl.commons.lwxml.writer.LWXMLWriter;
+import at.stefl.opendocument.java.odf.OpenDocument;
+import at.stefl.opendocument.java.odf.OpenDocumentFile;
+import at.stefl.opendocument.java.odf.OpenDocumentPresentation;
+import at.stefl.opendocument.java.odf.OpenDocumentSpreadsheet;
+import at.stefl.opendocument.java.odf.OpenDocumentText;
+import at.stefl.opendocument.java.translator.document.DocumentTranslator;
+import at.stefl.opendocument.java.translator.document.PresentationTranslator;
+import at.stefl.opendocument.java.translator.document.SpreadsheetTranslator;
+import at.stefl.opendocument.java.translator.document.TextTranslator;
+import at.stefl.opendocument.java.translator.settings.ImageStoreMode;
+import at.stefl.opendocument.java.translator.settings.TranslationSettings;
+import at.tomtasche.reader.engine.NotLocatedOpenDocumentFile;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
@@ -39,17 +46,8 @@ import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
-import com.google.appengine.api.blobstore.BlobKey;
-import com.google.appengine.api.files.AppEngineFile;
-import com.google.appengine.api.files.FileService;
-import com.google.appengine.api.files.FileServiceFactory;
-import com.google.appengine.api.files.FileWriteChannel;
-import com.google.appengine.api.taskqueue.Queue;
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.drive.samples.dredit.model.ClientFile;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 
 /**
  * Servlet providing a small API for the DrEdit JavaScript client to use in
@@ -104,72 +102,61 @@ public class DriveServlet extends DrEditServlet {
 		if (file != null) {
 			InputStream stream = getFileContent(service, file);
 
-			String content = null;
-			CachedOpenDocumentFile documentFile = new CachedOpenDocumentFile(
-					stream);
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+			int bytesRead;
+			byte[] data = new byte[1024];
+			while ((bytesRead = stream.read(data)) != -1) {
+				buffer.write(data, 0, bytesRead);
+			}
+
+			buffer.flush();
+
+			resp.setCharacterEncoding("UTF-8");
+			resp.setContentType("text/html; charset=UTF-8");
+
+			OpenDocumentFile documentFile = new NotLocatedOpenDocumentFile(
+					buffer.toByteArray());
+	
 			try {
-				if (isDocument(documentFile)) {
-					BlobKey key = persistFileContent(documentFile
-							.getInputStream());
-
-					JsonObject container = new JsonObject();
-					container
-							.addProperty(
-									"redirect",
-									resp.encodeRedirectURL("http://docs.google.com/viewer?url="
-											+ URLEncoder.encode(
-													"https://opendocument-engine.appspot.com/file?key="
-															+ key.getKeyString(),
-													"UTF-8") + "&embedded=true"));
-					gson.toJson(container, resp.getWriter());
-
-					return;
-
-					// final OpenDocumentText text = new OpenDocumentText(
-					// documentFile);
-					// final TranslatorOdt translatorOdt = new TranslatorOdt(
-					// text);
-					//
-					// content = translatorOdt.translate().getHtmlDocument()
-					// .toString();
-				} else if (isSpreadsheet(documentFile)) {
-					OpenDocumentSpreadsheet spreadsheet = new OpenDocumentSpreadsheet(
-							documentFile);
-					TranslatorOds translatorOds = new TranslatorOds(spreadsheet);
-
-					content = translatorOds.translate().getHtmlDocument()
-							.toString();
+				OpenDocument openDocument = documentFile.getAsDocument();
+	
+				TranslationSettings settings = new TranslationSettings();
+				settings.setBackTranslateable(false);
+				settings.setImageStoreMode(ImageStoreMode.INLINE);
+				settings.setSplitPages(false);
+				
+				DocumentTranslator translator;
+				if (openDocument instanceof OpenDocumentText) {
+					translator = new TextTranslator();
+				} else if (openDocument instanceof OpenDocumentSpreadsheet) {
+					translator = new SpreadsheetTranslator();
+				} else if (openDocument instanceof OpenDocumentPresentation) {
+					translator = new PresentationTranslator();
 				} else {
-					sendError(resp, 500, "Could not display file");
+					throw new IllegalStateException("unsupported document");
 				}
-			} catch (Exception e) {
+	
+				StringWriter writer = new StringWriter();
+				LWXMLWriter out = new LWXMLStreamWriter(writer);
+
+				translator.translate(openDocument, out, settings);
+				
+				resp.getWriter().print(new ClientFile(file, writer.toString()).toJson());
+	
+				resp.flushBuffer();
+			} catch (Throwable e) {
 				e.printStackTrace();
 
 				Logger.getAnonymousLogger().log(Level.SEVERE, "error", e);
 
 				sendError(resp, 500, "Could not display file");
-
-				return;
+			} finally {
+				documentFile.close();
 			}
-
-			resp.getWriter().print(new ClientFile(file, content).toJson());
 		} else {
 			sendError(resp, 404, "File not found");
 		}
-	}
-
-	private boolean isSpreadsheet(final CachedOpenDocumentFile file)
-			throws IOException {
-		return file.getMimeType().startsWith(OpenDocumentSpreadsheet.MIMETYPE)
-				|| file.getMimeType().startsWith(
-						OpenDocumentSpreadsheetTemplate.MIMETYPE);
-	}
-
-	private boolean isDocument(final CachedOpenDocumentFile file)
-			throws IOException {
-		return file.getMimeType().startsWith(OpenDocumentText.MIMETYPE)
-				|| file.getMimeType().startsWith(
-						OpenDocumentTextTemplate.MIMETYPE);
 	}
 
 	private InputStream getFileContent(Drive service, File file)
@@ -179,33 +166,6 @@ public class DriveServlet extends DrEditServlet {
 				.buildGetRequest(url).execute();
 
 		return response.getContent();
-	}
-
-	private BlobKey persistFileContent(InputStream stream) throws IOException {
-		FileService fileService = FileServiceFactory.getFileService();
-		AppEngineFile engineFile = fileService.createNewBlobFile(
-				"application/vnd.oasis.opendocument.text", "file.odt");
-
-		FileWriteChannel writeChannel = fileService.openWriteChannel(
-				engineFile, true);
-		OutputStream output = Channels.newOutputStream(writeChannel);
-
-		int bytesRead;
-		byte[] buffer = new byte[1024];
-		while ((bytesRead = stream.read(buffer)) != -1) {
-			output.write(buffer, 0, bytesRead);
-		}
-
-		output.close();
-		writeChannel.closeFinally();
-
-		BlobKey key = fileService.getBlobKey(engineFile);
-		Queue queue = QueueFactory.getDefaultQueue();
-		// delete all files after 20 minutes
-		queue.add(TaskOptions.Builder.withUrl("/worker")
-				.param("key", key.getKeyString()).countdownMillis(12000000));
-
-		return key;
 	}
 
 	/**
