@@ -1,6 +1,6 @@
 {
   "name" : "OpenDocument Reader",
-  "version" : "6",
+  "version" : "7",
   "description" : "It's the first viewer for OpenOffice and LibreOffice documents in the cloud",
   "container" : "GOOGLE_DRIVE",
   "api_console_project_id" : "672320429401",
@@ -11,7 +11,7 @@
   "gdrive_mime_types": {
     "http://drive.google.com/intents/opendrivedoc": [
       { 
-        "type": ["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.google.drive.ext-type.odt", "application/vnd.google.drive.ext-type.ods"],
+        "type": ["application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.oasis.opendocument.presentation", "application/vnd.google.drive.ext-type.odt", "application/vnd.google.drive.ext-type.ods", "application/vnd.google.drive.ext-type.odp"],
         "href": "https://opendocument-engine.appspot.com/",
         "title" : "Open",
         "disposition" : "window"

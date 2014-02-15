@@ -21,7 +21,6 @@ import java.io.StringWriter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -47,7 +46,6 @@ import com.google.api.client.http.HttpResponse;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.drive.samples.dredit.model.ClientFile;
-import com.google.gson.Gson;
 
 /**
  * Servlet providing a small API for the DrEdit JavaScript client to use in
@@ -58,15 +56,6 @@ import com.google.gson.Gson;
  */
 @SuppressWarnings("serial")
 public class DriveServlet extends DrEditServlet {
-
-	private Gson gson;
-
-	@Override
-	public void init() throws ServletException {
-		super.init();
-
-		gson = new Gson();
-	}
 
 	/**
 	 * Given a {@code file_id} URI parameter, return a JSON representation of
