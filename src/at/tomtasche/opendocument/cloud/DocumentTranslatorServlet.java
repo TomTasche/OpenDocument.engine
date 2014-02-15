@@ -33,9 +33,20 @@ public class DocumentTranslatorServlet extends BaseServlet {
 
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException {
+		FileType type = getType(req);
+		if (type == null) {
+			type = FileType.DOCUMENT;
+		}
+
+		String filename = req.getParameter("file");
+		if (filename == null) {
+			filename = "intro.odt";
+		}
+		
+		boolean retranslatable = new Boolean(req.getParameter("retranslatable"));
+
 		GcsInputChannel inputChannel = gcsService.openReadChannel(
-				new GcsFilename(FileType.DOCUMENT + FILES_SUFFIX, "intro.odt"),
-				0);
+				new GcsFilename(type + FILES_SUFFIX, filename), 0);
 
 		InputStream stream = Channels.newInputStream(inputChannel);
 
@@ -58,7 +69,7 @@ public class DocumentTranslatorServlet extends BaseServlet {
 		OpenDocument openDocument = documentFile.getAsDocument();
 
 		TranslationSettings settings = new TranslationSettings();
-		settings.setBackTranslateable(true);
+		settings.setBackTranslateable(retranslatable);
 		settings.setImageStoreMode(ImageStoreMode.INLINE);
 
 		LWXMLWriter out = new LWXMLStreamWriter(resp.getOutputStream());

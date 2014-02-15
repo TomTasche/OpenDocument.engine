@@ -137,6 +137,7 @@ public class FileServlet extends BaseServlet {
 
 		JsonObject container = new JsonObject();
 		container.addProperty("file", filename);
+		container.addProperty("type", type.toString());
 		gson.toJson(container, resp.getWriter());
 	}
 }
